@@ -190,11 +190,13 @@ def detect_all_timeframes(
     daily:        pd.DataFrame,
     raw_4h_dir:   str = "data/raw_4h",
     scan_tail_d:  int = 300,
-    scan_tail_w:  int = 100,
-    scan_tail_4h: int = 500,
+    anchor_window_weekly_days: int = 90,
+    anchor_window_h4_days:     int = 30,
 ) -> dict:
     """
     Run detection on weekly, daily, and 4H independently.
+    Daily is the anchor — weekly and 4H are filtered to patterns
+    whose C2 date falls within a window of the most recent daily C2.
 
     Returns
     -------
@@ -202,24 +204,40 @@ def detect_all_timeframes(
     """
     results = {"weekly": [], "daily": [], "h4": []}
 
-    # Weekly
+    # Daily first — this is the anchor
+    try:
+        daily_patterns = detect_on_timeframe(daily, "daily", scan_tail=scan_tail_d)
+        results["daily"] = daily_patterns
+    except Exception as e:
+        print(f"  [{ticker}] Daily detection error: {e}")
+        return results
+
+    if not results["daily"]:
+        return results
+
+    # Anchor = most recent daily C2 date
+    anchor_date = pd.Timestamp(results["daily"][-1]["c2_date"])
+
+    # Weekly — filter to patterns whose C2 is within anchor_window_weekly_days
     try:
         weekly = resample_to_weekly(daily)
-        results["weekly"] = detect_on_timeframe(weekly, "weekly", scan_tail=scan_tail_w)
+        all_weekly = detect_on_timeframe(weekly, "weekly", scan_tail=len(weekly))
+        results["weekly"] = [
+            p for p in all_weekly
+            if abs((pd.Timestamp(p["c2_date"]) - anchor_date).days) <= anchor_window_weekly_days
+        ]
     except Exception as e:
         print(f"  [{ticker}] Weekly detection error: {e}")
 
-    # Daily
-    try:
-        results["daily"] = detect_on_timeframe(daily, "daily", scan_tail=scan_tail_d)
-    except Exception as e:
-        print(f"  [{ticker}] Daily detection error: {e}")
-
-    # 4H
+    # 4H — filter to patterns whose C2 is within anchor_window_h4_days
     try:
         h4 = load_4h(ticker, raw_4h_dir)
         if h4 is not None and len(h4) > 100:
-            results["h4"] = detect_on_timeframe(h4, "h4", scan_tail=scan_tail_4h)
+            all_h4 = detect_on_timeframe(h4, "h4", scan_tail=len(h4))
+            results["h4"] = [
+                p for p in all_h4
+                if abs((pd.Timestamp(p["c2_date"]) - anchor_date).days) <= anchor_window_h4_days
+            ]
     except Exception as e:
         print(f"  [{ticker}] 4H detection error: {e}")
 
