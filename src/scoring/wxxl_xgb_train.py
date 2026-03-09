@@ -32,7 +32,7 @@ import shap
 # =============================================================================
 # CONFIG
 # =============================================================================
-FEATURES_PATH = "data/features/labeled_features.csv"
+FEATURES_PATH = "data/features/labeled_features_mtf.csv"
 MODEL_DIR     = "models/xgb"
 MIN_TRAIN_ROWS = 200
 N_FOLDS        = 5
@@ -154,7 +154,7 @@ def train_final_model(X: pd.DataFrame, y: pd.Series, feature_cols: list):
     model.fit(X, y, verbose=False)
 
     os.makedirs(MODEL_DIR, exist_ok=True)
-    model_path = os.path.join(MODEL_DIR, "wxxl_xgb_v3.json")
+    model_path = os.path.join(MODEL_DIR, "wxxl_xgb_v4.json")
     model.save_model(model_path)
     print(f"Model saved: {model_path}")
 
