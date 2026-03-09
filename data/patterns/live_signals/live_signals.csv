@@ -1,0 +1,2 @@
+ticker,c1_idx,c1_date,c2_idx,c2_date,c1_price,c2_price,neckline,xgb_prob,dtw_distance,prior_decline
+BBY,4059,2026-02-24,4063,2026-03-02,62.73,61.59,70.41,0.5799,0.689,0.2151
