@@ -152,10 +152,15 @@ def extract_double_bottom_pips(
         result["reason"] = f"insufficient_pips: got {len(pip_indices)}"
         return result
 
-    # Identify C1 — should be near minimum in first half
+    # Identify C1 — lowest point in first half, but must be a real trough
+    # not just any local low. Use the known c1_idx as anchor.
     half = len(pip_indices) // 2
     first_half_prices = pip_prices[:half + 1]
-    c1_pip = first_half_prices.index(min(first_half_prices))
+
+    # Find the PIP closest to the known c1_idx
+    c1_absolute = c1_idx
+    distances = [abs((win_start + pip_indices[i]) - c1_absolute) for i in range(half + 1)]
+    c1_pip = distances.index(min(distances))
 
     # Identify C2 — minimum in second half (after neckline)
     second_half_prices = pip_prices[c1_pip + 1:]
@@ -194,9 +199,9 @@ def extract_double_bottom_pips(
         result["reason"] = "caves_not_below_neckline"
         return result
 
-    # 2. C2 must be within 5% of C1 (symmetric caves)
+    # 2. C2 must be within 15% of C1 (real markets are not perfectly symmetric)
     cave_diff = abs(c2_price - c1_price) / c1_price
-    if cave_diff > 0.05:
+    if cave_diff > 0.15:
         result["reason"] = f"caves_too_asymmetric: {cave_diff:.1%} difference"
         return result
 

@@ -59,7 +59,7 @@ def normalise(prices: list) -> np.ndarray:
 def dtw_match(
     pip_prices: list,
     template: np.ndarray = CANONICAL_TEMPLATE,
-    threshold: float = 0.35,
+    threshold: float = 0.80,
 ) -> dict:
     """
     Compare extracted PIP prices against the double bottom template using DTW.

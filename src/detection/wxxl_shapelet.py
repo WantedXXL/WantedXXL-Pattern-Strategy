@@ -36,7 +36,7 @@ import pickle
 def rule_based_vote(pip_prices: list) -> dict:
     """
     Geometric rules that approximate shapelet classification.
-    Returns a vote dict identical in format to the trained classifier.
+    Assumes standard PIP order: P0=start, P1=C1, P2=mid, P3=neckline, P4=mid, P5=C2, P6=end
     """
     result = {
         "vote": False,
@@ -50,50 +50,44 @@ def rule_based_vote(pip_prices: list) -> dict:
 
     p = pip_prices
 
-    # Find approximate C1, neckline, C2
-    # C1 = minimum in first half
-    first_half  = p[:4]
-    second_half = p[3:]
+    # Trust PIP positions directly
+    c1_price       = p[1]
+    neckline_price = max(p[2], p[3], p[4])  # neckline is highest point in middle
+    c2_price       = p[5]
 
-    c1_price       = min(first_half)
-    c1_idx         = first_half.index(c1_price)
-    neckline_price = max(p[c1_idx:])
-    neckline_idx   = p.index(neckline_price)
-    c2_price       = min(p[neckline_idx:])
-
-    # Rule 1: C1 and C2 must both be lower than neckline
+    # Rule 1: Both caves must be below neckline
     if c1_price >= neckline_price or c2_price >= neckline_price:
         result["reason"] = "caves_above_neckline"
         return result
 
-    # Rule 2: Pattern must have a V shape — not monotone
+    # Rule 2: Pattern must have meaningful range
     price_range = max(p) - min(p)
     if price_range < 0.03 * max(p):
         result["reason"] = "price_range_too_small"
         return result
 
-    # Rule 3: Neckline must be above both caves by at least 5%
+    # Rule 3: Neckline must be at least 5% above caves
     neckline_height_c1 = (neckline_price - c1_price) / c1_price
     neckline_height_c2 = (neckline_price - c2_price) / c2_price
     if neckline_height_c1 < 0.05 or neckline_height_c2 < 0.05:
-        result["reason"] = f"neckline_too_shallow"
+        result["reason"] = "neckline_too_shallow"
         return result
 
-    # Rule 4: Cave symmetry — C2 within 8% of C1
+    # Rule 4: Cave symmetry — C2 within 15% of C1
     cave_diff = abs(c2_price - c1_price) / c1_price
-    if cave_diff > 0.08:
+    if cave_diff > 0.15:
         result["reason"] = f"caves_asymmetric: {cave_diff:.1%}"
         return result
 
-    # Rule 5: Start price must be higher than Cave 1 (was in a downtrend)
-    if p[0] <= c1_price * 1.05:
+    # Rule 5: Start price higher than C1 (prior downtrend)
+    if p[0] <= c1_price * 1.02:
         result["reason"] = "no_downtrend_before_c1"
         return result
 
-    # Compute confidence based on how well rules are satisfied
-    symmetry_score  = 1.0 - (cave_diff / 0.08)
-    neckline_score  = min(neckline_height_c1 / 0.20, 1.0)
-    confidence      = round((symmetry_score + neckline_score) / 2, 4)
+    # Confidence
+    symmetry_score = 1.0 - (cave_diff / 0.15)
+    neckline_score = min(neckline_height_c1 / 0.20, 1.0)
+    confidence     = round((symmetry_score + neckline_score) / 2, 4)
 
     result["vote"]       = True
     result["confidence"] = confidence
